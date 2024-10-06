@@ -1,0 +1,70 @@
+modules:
+  - id: gradle-base
+    module: polytope/container
+    params:
+      - id: cmd
+        type: [default, [either, str, [str]], bash]
+      - id: id
+        type: [default, str, gradle-base]
+      - id: services
+        type: [maybe, [service-spec]]
+    args:
+      id: "#pt-param id"
+      image: gradle:8-jdk23
+      cmd: "#pt-param cmd"
+      workdir: /app
+      env:
+        - name: SERVER_PORT
+          value: 8081
+      mounts:
+        - { path: /app, source: { type: host, path: ./app }}
+        - { path: /app/build, source: { type: volume, scope: project, id: gradle-build-cache }}
+        - { path: /root/.m2, source: { type: volume, scope: project, id: m2-dependency-cache }}
+        - { path: /root/.gradle, source: { type: volume, scope: project, id: gradle-dependency-cache }}
+      restart: { policy: always }
+      services: "#pt-param services"
+
+  - id: run-dev
+    module: gradle-base
+    params:
+      - id: cmd
+        type: [default, [either, str, [str]], [sh, -c, 'trap "trap - INT; kill -INT 0" INT; trap "trap - TERM; kill -TERM 0" TERM; gradle build --console=plain --continuous & gradle bootRun --console=plain & wait']]
+    args:
+      id: app
+      cmd: "#pt-param cmd"
+      services:
+        - id: app
+          ports:
+            - protocol: http
+              port: 8081
+
+  - id: build
+    params:
+      - id: tags
+        type: [default, [str], [springboot-app:latest]]
+    module: polytope/build-image
+    args:
+      sources:
+        - {source: {type: host, path: ./app}, path: /}
+      tags: "#pt-param tags"
+
+  - id: run-built
+    params:
+      - id: image
+        type: [default, str, springboot-app:latest]
+      - id: cmd
+        type: [maybe, [either, str, [str]]]
+    module: polytope/container
+    args:
+      image: "#pt-param image"
+      id: app
+      cmd: "#pt-param cmd"
+      env:
+        - name: SERVER_PORT
+          value: 8081
+      services:
+        - id: app
+          ports:
+            - protocol: http
+              port: 8081
+      restart: { policy: always }

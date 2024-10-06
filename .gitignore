@@ -1,0 +1,15 @@
+.gradle
+**/build/
+!src/**/build/
+
+gradle-app.setting
+
+.gradletasknamecache
+
+.project
+.classpath
+
+.polytope
+.polytope-repos
+
+.DS_Store
